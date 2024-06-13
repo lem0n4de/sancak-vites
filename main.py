@@ -7,13 +7,9 @@ import pandas as pd
 import random
 import datetime
 
-# Solver'ın oluşturulması
-solver = pywraplp.Solver.CreateSolver("SCIP")
-if not solver:
-    raise ValueError("SCIP çözücüsü bulunamadı!")
-
 
 class Vites:
+    __solver: pywraplp.Solver
     kıdem_aralıkları: list[tuple[int, int]]
     df: pd.DataFrame
     number_of_doctors: int
@@ -28,7 +24,9 @@ class Vites:
     nobet_listesi: dict
 
     def __init__(self) -> None:
-        pass
+        self.__solver = pywraplp.Solver.CreateSolver("SCIP")
+        if not self.__solver:
+            raise ValueError("SCIP çözücüsü bulunamadı!")
 
     def get_kıdem_aralıkları(self, kıdem_file: str = "asistan_kidem.xlsx"):
         self.df = pd.read_excel("asistan_kidem.xlsx")
@@ -57,27 +55,29 @@ class Vites:
         self.dev = {}
         for i in range(1, self.number_of_doctors + 1):
             for j in range(1, self.number_of_days + 1):
-                self.dev[i, j] = solver.IntVar(0, 1, f"dev[{i}][{j}]")
+                self.dev[i, j] = self.__solver.IntVar(0, 1, f"dev[{i}][{j}]")
         self.deveks = {}
         for i in range(1, self.number_of_doctors + 1):
             for j in range(1, self.number_of_days + 1):
-                self.deveks[i, j] = solver.IntVar(0, 1, f"deveks[{i}][{j}]")
+                self.deveks[i, j] = self.__solver.IntVar(0, 1, f"deveks[{i}][{j}]")
 
         # Sapma değerleri için değişkenlerin tanımlanması ilk 3 kıdem için için
         self.dev1 = {}
         for i in range(1, self.number_of_doctors + 1):
             for j in range(1, self.number_of_days + 1):
-                self.dev1[i, j] = solver.IntVar(0, 1, f"dev1[{i}][{j}]")
+                self.dev1[i, j] = self.__solver.IntVar(0, 1, f"dev1[{i}][{j}]")
         self.deveks1 = {}
         for i in range(1, self.number_of_doctors + 1):
             for j in range(1, self.number_of_days + 1):
-                self.deveks1[i, j] = solver.IntVar(0, 1, f"deveks1[{i}][{j}]")
+                self.deveks1[i, j] = self.__solver.IntVar(0, 1, f"deveks1[{i}][{j}]")
 
         # Değişkenlerin tanımlanması
         self.nobet_listesi = {}
         for i in range(1, self.number_of_doctors + 1):
             for j in range(1, self.number_of_days + 1):
-                self.nobet_listesi[i, j] = solver.BoolVar(f"nobet_listesi[{i}][{j}]")
+                self.nobet_listesi[i, j] = self.__solver.BoolVar(
+                    f"nobet_listesi[{i}][{j}]"
+                )
 
     def setup_kidem_rules(self):
         # Her gün her kıdemden en az bir doktor
@@ -85,12 +85,12 @@ class Vites:
             for aralık in self.kıdem_aralıkları:
                 start, end = aralık
                 if (end - start) <= 2:
-                    solver.Add(
+                    self.__solver.Add(
                         sum(self.nobet_listesi[i, j] for i in range(start, end + 1))
                         <= 1
                     )  # eğer kıdemde yeterli kişi yoksa o kıdemden nöbet tutan kimse olmayabilir(örneğin kıdemdeki kişi sayısı 3 kişi ve altındaysa)
                 else:
-                    solver.Add(
+                    self.__solver.Add(
                         1
                         <= sum(self.nobet_listesi[i, j] for i in range(start, end + 1))
                     )  # o gün için o kıdemden çalışacak bütün doktorların toplamının sayısının 1 den büyük olması
@@ -98,36 +98,36 @@ class Vites:
         # 6. kıdemi 4ten küçük yapma
         for j in range(1, self.number_of_days + 1):
             start, end = (23, 33)
-            solver.Add(
+            self.__solver.Add(
                 sum(self.nobet_listesi[i, j] for i in range(start, end + 1)) <= 3
             )
-            solver.Add(
+            self.__solver.Add(
                 sum(self.nobet_listesi[i, j] for i in range(start, end + 1)) >= 2
             )
         """
         #7. kıdem
         for j in range(1, self.number_of_days+1):
         start, end = (34,36)
-        solver.Add(sum(self.nobet_listesi[i, j] for i in range(start, end+1)) <= 2)
-        solver.Add(sum(self.nobet_listesi[i, j] for i in range(start, end+1)) >= 1)
+        self.__solver.Add(sum(self.nobet_listesi[i, j] for i in range(start, end+1)) <= 2)
+        self.__solver.Add(sum(self.nobet_listesi[i, j] for i in range(start, end+1)) >= 1)
         """
         # 4. kıdemi 3ten küçük yapma
         for j in range(1, self.number_of_days + 1):
             start, end = (13, 17)
-            solver.Add(
+            self.__solver.Add(
                 sum(self.nobet_listesi[i, j] for i in range(start, end + 1)) <= 2
             )
         """
         #5. kıdemi 3ten küçük yapma
         for j in range(1, self.number_of_days+1):
         start, end = (18, 22)
-        solver.Add(sum(self.nobet_listesi[i, j] for i in range(start, end+1)) <= 3)
+        self.__solver.Add(sum(self.nobet_listesi[i, j] for i in range(start, end+1)) <= 3)
         """
 
         # iki günde bir nöbet -bir nöbetten  sonra iki gün boş kalmalı-
         for i in range(1, self.number_of_doctors + 1):
             for j in range(1, self.number_of_days - 1):
-                solver.Add(
+                self.__solver.Add(
                     self.nobet_listesi[i, j]
                     + self.nobet_listesi[i, j + 1]
                     + self.nobet_listesi[i, j + 2]
@@ -143,23 +143,23 @@ class Vites:
         for i in range(1, self.number_of_doctors + 1):
             if i in worked_last_day:
                 # Doctor cannot work on the 1st and 2nd days of the current month
-                solver.Add(self.nobet_listesi[i, 1] == 0)
-                solver.Add(self.nobet_listesi[i, 2] == 0)
+                self.__solver.Add(self.nobet_listesi[i, 1] == 0)
+                self.__solver.Add(self.nobet_listesi[i, 2] == 0)
             elif i in worked_second_last_day:
                 # Doctor cannot work on the 1st day of the current month
-                solver.Add(self.nobet_listesi[i, 1] == 0)
+                self.__solver.Add(self.nobet_listesi[i, 1] == 0)
 
     def setup_average_doctor_per_day(self):
         # Bir gündeki doktor sayısının olabildiğince eşit olması  (ortalamadan -1 olması kısıtı) bir günde 9 veya 10 doktor bulunması gibi
         for j in range(1, self.number_of_days + 1):
-            solver.Add(
+            self.__solver.Add(
                 sum(
                     self.nobet_listesi[i, j]
                     for i in range(1, self.number_of_doctors + 1)
                 )
                 <= round(self.number_of_doctors * 8 / self.number_of_days)
             )
-            solver.Add(
+            self.__solver.Add(
                 round(self.number_of_doctors * 8 / self.number_of_days) - 1
                 <= sum(
                     self.nobet_listesi[i, j]
@@ -189,8 +189,8 @@ class Vites:
                 for j in range(1, self.number_of_days + 1)
                 if (j + self.first_day_of_month - 1) % 7 in weekends
             )
-            solver.Add(weekday_shifts - weekend_shifts <= 2)
-            solver.Add(-2 <= weekday_shifts - weekend_shifts)
+            self.__solver.Add(weekday_shifts - weekend_shifts <= 2)
+            self.__solver.Add(-2 <= weekday_shifts - weekend_shifts)
 
     def setup_equal_lesson_days(self):
         self.salı_günleri = [
@@ -215,7 +215,7 @@ class Vites:
                 self.deveks[i, gün]
                 for gün in (self.salı_günleri + self.perşembe_günleri)
             )
-            solver.Add(salı_perşembe_toplam_i + deviation == 2)
+            self.__solver.Add(salı_perşembe_toplam_i + deviation == 2)
 
     def setup_shift_count(self):
         # her doktor 8 nöbet tutmalı
@@ -223,7 +223,7 @@ class Vites:
             # if i == 24:
             #   solver.Add(sum(self.nobet_listesi[i, j] for j in range(1, self.number_of_days+1)) == 2) #özel durum (24. doktor 2 nöbet tutacak)
             if i == 23:
-                solver.Add(
+                self.__solver.Add(
                     sum(
                         self.nobet_listesi[i, j]
                         for j in range(1, self.number_of_days + 1)
@@ -231,7 +231,7 @@ class Vites:
                     == 0
                 )
             elif i == 5:
-                solver.Add(
+                self.__solver.Add(
                     sum(
                         self.nobet_listesi[i, j]
                         for j in range(1, self.number_of_days + 1)
@@ -239,7 +239,7 @@ class Vites:
                     == 7
                 )
             else:
-                solver.Add(
+                self.__solver.Add(
                     sum(
                         self.nobet_listesi[i, j]
                         for j in range(1, self.number_of_days + 1)
@@ -251,7 +251,7 @@ class Vites:
         # each doctor works on their available dates
         for doctor, available_dates in avail.items():
             for date in available_dates:
-                solver.Add(
+                self.__solver.Add(
                     self.nobet_listesi[doctor, date] == 1
                 )  # Doctor must work on their available dates
 
@@ -259,7 +259,7 @@ class Vites:
         # each doctor doesn't work on their unavailable dates
         for doctor, unavailable_dates in non_avail.items():
             for date in unavailable_dates:
-                solver.Add(
+                self.__solver.Add(
                     self.nobet_listesi[doctor, date] == 0
                 )  # Doctor cannot work on their unavailable dates
 
@@ -268,15 +268,19 @@ class Vites:
         for doktor1, doktor2 in evli_çiftler:
             # Her gün için birlikte nöbet tutup tutmadıklarını belirten değişkenler
             birlikte_nöbet = [
-                solver.BoolVar(f"birlikte_nöbet[{doktor1}][{doktor2}][{j}]")
+                self.__solver.BoolVar(f"birlikte_nöbet[{doktor1}][{doktor2}][{j}]")
                 for j in range(1, self.number_of_days + 1)
             ]
 
             for j in range(1, self.number_of_days + 1):
                 # Eğer her iki doktor da aynı gün nöbetçi ise, birlikte_nöbet[j] 1 olur
-                solver.Add(birlikte_nöbet[j - 1] <= self.nobet_listesi[doktor1, j])
-                solver.Add(birlikte_nöbet[j - 1] <= self.nobet_listesi[doktor2, j])
-                solver.Add(
+                self.__solver.Add(
+                    birlikte_nöbet[j - 1] <= self.nobet_listesi[doktor1, j]
+                )
+                self.__solver.Add(
+                    birlikte_nöbet[j - 1] <= self.nobet_listesi[doktor2, j]
+                )
+                self.__solver.Add(
                     birlikte_nöbet[j - 1]
                     >= self.nobet_listesi[doktor1, j]
                     + self.nobet_listesi[doktor2, j]
@@ -284,7 +288,7 @@ class Vites:
                 )
 
             # Her çift için toplam 6 gün birlikte nöbet tutma kısıtı
-            solver.Add(sum(birlikte_nöbet) == 6)
+            self.__solver.Add(sum(birlikte_nöbet) == 6)
 
     def setup(self, avail, non_avail, evli_ciftler):
         self.get_kıdem_aralıkları()
@@ -307,10 +311,10 @@ class Vites:
                 objective_terms.append(self.dev[doktor, gün])
                 objective_terms.append(self.deveks[doktor, gün])
 
-        solver.Minimize(solver.Sum(objective_terms))
+        self.__solver.Minimize(self.__solver.Sum(objective_terms))
 
     def create_shifts(self):
-        status = solver.Solve()
+        status = self.__solver.Solve()
         # Çözümün yazdırılması
         if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
 
