@@ -125,14 +125,38 @@ class Vites:
         self.__solver.Add(sum(self.nobet_listesi[i, j] for i in range(start, end+1)) <= 3)
         """
 
-        # iki günde bir nöbet -bir nöbetten  sonra iki gün boş kalmalı-
+        # # iki günde bir nöbet -bir nöbetten  sonra iki gün boş kalmalı-
+        # for i in range(1, self.number_of_doctors + 1):
+        #     for j in range(1, self.number_of_days - 1):
+        #         self.__solver.Add(
+        #             self.nobet_listesi[i, j]
+        #             + self.nobet_listesi[i, j + 1]
+        #             + self.nobet_listesi[i, j + 2]
+        #             <= 1
+        # )
+        # Two-day rule: each doctor can work at most once every other day in the month
         for i in range(1, self.number_of_doctors + 1):
+            every_other_day_works = []
             for j in range(1, self.number_of_days - 1):
+                every_other_day_works.append(
+                    self.__solver.BoolVar(f"every_other_day[{i}][{j}]")
+                )
                 self.__solver.Add(
-                    self.nobet_listesi[i, j]
-                    + self.nobet_listesi[i, j + 1]
-                    + self.nobet_listesi[i, j + 2]
-                    <= 1
+                    every_other_day_works[-1]
+                    <= self.nobet_listesi[i, j] + self.nobet_listesi[i, j + 2]
+                )
+                self.__solver.Add(
+                    every_other_day_works[-1]
+                    >= self.nobet_listesi[i, j] + self.nobet_listesi[i, j + 2] - 1
+                )
+
+            # Allow only one every other day work pattern per month
+            self.__solver.Add(sum(every_other_day_works) <= 1)
+
+            # Ensure no consecutive working days
+            for j in range(1, self.number_of_days):
+                self.__solver.Add(
+                    self.nobet_listesi[i, j] + self.nobet_listesi[i, j + 1] <= 1
                 )
 
     def setup_month_start_end_rules(self):
