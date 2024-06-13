@@ -6,6 +6,7 @@ import calendar
 import pandas as pd
 import random
 import datetime
+from collections import defaultdict
 
 
 class Vites:
@@ -328,6 +329,71 @@ class Vites:
         else:
             print("Optimal çözüm bulunamadı!")
 
+    def export_excel(self):
+        # Boş bir DataFrame
+        df1 = pd.DataFrame()
+
+        # Ayın günleri
+        days = [
+            f"{day:02d}.{datetime.date.today().month + 1}.2024" for day in range(1, 32)
+        ]  # aydan aya değişmeli
+        df1["Days"] = days
+
+        doktor_nobetleri = defaultdict(list)
+
+        for i in range(1, self.number_of_doctors + 1):
+            # calisma = []
+            # for j in range(1, self.number_of_days + 1):
+            #     if self.nobet_listesi[i, j].solution_value() > 0.5:
+            #         calisma.append(j)
+            # doktor_calisma_gunleri.append(calisma)
+
+            for j in range(1, self.number_of_days + 1):
+                if self.nobet_listesi[i, j].solution_value() > 0.5:
+                    doktor_nobetleri[i].append(j)
+
+        # Doktor isimlerini, çalışma günleri ve kıdem aralıklarına göre ekleme
+        for doktor_id, nobet_gunleri in doktor_nobetleri.items():
+            doktor_adi = self.df["Ad-Soyad"].iloc[doktor_id - 1]
+            for gun in nobet_gunleri:
+                for j, kıdem in enumerate(self.kıdem_aralıkları):
+                    if kıdem[0] <= doktor_id <= kıdem[1]:
+                        col_name_base = f"Kıdem {j + 1}"
+                        col_name = col_name_base
+                        if col_name not in df1:
+                            df1[col_name] = ""
+                        while df1.at[gun - 1, col_name] != "":
+                            j += 1
+                            col_name = f"{col_name_base}_{j:02d}"
+                            if col_name not in df1:
+                                df1[col_name] = ""
+                        df1.at[gun - 1, col_name] = doktor_adi
+
+        # 'Days' sütununu 1. sütuna taşıma
+        days_column = df1.pop("Days")
+        df1.insert(0, "Days", days_column)
+
+        # Sütun başlıklarını numaralandırma
+        column_names = list(df1.columns)
+        prev_base = ""
+        prev_num = 0
+        for i in range(1, len(column_names)):
+            if "_" in column_names[i]:
+                base, num = column_names[i].split("_")
+                if prev_base == base:
+                    prev_num += 1
+                else:
+                    prev_base = base
+                    prev_num = 1
+                column_names[i] = f"{base}_{prev_num}"
+        df1.columns = column_names
+
+        # DataFrame'i Excel dosyasına kaydetme
+        excel_file_path = "doktor_nobetleri.xlsx"
+        df1.to_excel(excel_file_path, index=False)
+
+        print(f"Data saved to '{excel_file_path}'")
+
 
 # doctor_availabilities -doktorların müsait oldukları, özellikle nöbet tutmak istedikleri günler
 doctor_availabilities = {
@@ -388,6 +454,7 @@ evli_çiftler = [(1, 6), (2, 11), (16, 17)]  # Çiftlerin doktor numaraları
 vites = Vites()
 vites.setup(doctor_availabilities, doctor_non_availabilities, evli_çiftler)
 vites.create_shifts()
+vites.export_excel()
 
 
 import sys
@@ -397,69 +464,6 @@ sys.exit(0)
 from collections import defaultdict
 import pandas as pd
 
-# Boş bir DataFrame
-df1 = pd.DataFrame()
-
-# Ayın günleri
-days = [f"{day:02d}.4.2024" for day in range(1, 32)]  # aydan aya değişmeli
-df1["Days"] = days
-
-
-doktor_nobetleri = defaultdict(list)
-
-for i in range(1, self.number_of_doctors + 1):
-    # calisma = []
-    # for j in range(1, self.number_of_days + 1):
-    #     if self.nobet_listesi[i, j].solution_value() > 0.5:
-    #         calisma.append(j)
-    # doktor_calisma_gunleri.append(calisma)
-
-    for j in range(1, self.number_of_days + 1):
-        if self.nobet_listesi[i, j].solution_value() > 0.5:
-            doktor_nobetleri[i].append(j)
-
-# Doktor isimlerini, çalışma günleri ve kıdem aralıklarına göre ekleme
-for doktor_id, nobet_gunleri in doktor_nobetleri.items():
-    doktor_adi = df["Ad-Soyad"].iloc[doktor_id - 1]
-    for gun in nobet_gunleri:
-        for j, kıdem in enumerate(kıdem_aralıkları):
-            if kıdem[0] <= doktor_id <= kıdem[1]:
-                col_name_base = f"Kıdem {j + 1}"
-                col_name = col_name_base
-                if col_name not in df1:
-                    df1[col_name] = ""
-                while df1.at[gun - 1, col_name] != "":
-                    j += 1
-                    col_name = f"{col_name_base}_{j:02d}"
-                    if col_name not in df1:
-                        df1[col_name] = ""
-                df1.at[gun - 1, col_name] = doktor_adi
-
-# 'Days' sütununu 1. sütuna taşıma
-days_column = df1.pop("Days")
-df1.insert(0, "Days", days_column)
-
-# Sütun başlıklarını numaralandırma
-column_names = list(df1.columns)
-prev_base = ""
-prev_num = 0
-for i in range(1, len(column_names)):
-    if "_" in column_names[i]:
-        base, num = column_names[i].split("_")
-        if prev_base == base:
-            prev_num += 1
-        else:
-            prev_base = base
-            prev_num = 1
-        column_names[i] = f"{base}_{prev_num}"
-df1.columns = column_names
-
-
-# DataFrame'i Excel dosyasına kaydetme
-excel_file_path = "doktor_nobetleri.xlsx"
-df1.to_excel(excel_file_path, index=False)
-
-print(f"Data saved to '{excel_file_path}'")
 
 import matplotlib.pyplot as plt
 import numpy as np
