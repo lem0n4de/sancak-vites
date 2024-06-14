@@ -98,7 +98,7 @@ class Vites:
 
         # 6. kıdemi 4ten küçük yapma
         for j in range(1, self.number_of_days + 1):
-            start, end = (23, 33)
+            start, end = (22, 31)
             self.__solver.Add(
                 sum(self.nobet_listesi[i, j] for i in range(start, end + 1)) <= 3
             )
@@ -114,7 +114,7 @@ class Vites:
         """
         # 4. kıdemi 3ten küçük yapma
         for j in range(1, self.number_of_days + 1):
-            start, end = (13, 17)
+            start, end = (12, 16)
             self.__solver.Add(
                 sum(self.nobet_listesi[i, j] for i in range(start, end + 1)) <= 2
             )
@@ -161,8 +161,8 @@ class Vites:
 
     def setup_month_start_end_rules(self):
         # bir önceki ayın son günü (last_day) ve sondan bir önceki günü (second_last_day) nöbetten sonra 2 gün dinlenme kısıtı
-        worked_last_day = {1, 6, 7, 8, 9, 15, 19, 28, 32}
-        worked_second_last_day = {2, 5, 12, 16, 17, 18, 27, 31}
+        worked_last_day = {7, 11, 12, 18, 20, 25, 27, 29}
+        worked_second_last_day = {2, 4, 10, 14, 17, 26, 30, 32}
 
         # Constraints based on the last two days of the previous month
         for i in range(1, self.number_of_doctors + 1):
@@ -247,15 +247,7 @@ class Vites:
         for i in range(1, self.number_of_doctors + 1):
             # if i == 24:
             #   solver.Add(sum(self.nobet_listesi[i, j] for j in range(1, self.number_of_days+1)) == 2) #özel durum (24. doktor 2 nöbet tutacak)
-            if i == 23:
-                self.__solver.Add(
-                    sum(
-                        self.nobet_listesi[i, j]
-                        for j in range(1, self.number_of_days + 1)
-                    )
-                    == 0
-                )
-            elif i == 5:
+            if i == 1 or i == 6:
                 self.__solver.Add(
                     sum(
                         self.nobet_listesi[i, j]
@@ -420,18 +412,7 @@ class Vites:
 
 
 # doctor_availabilities -doktorların müsait oldukları, özellikle nöbet tutmak istedikleri günler
-doctor_availabilities = {
-    2: [],
-    3: [],
-    7: [],
-    8: [],
-    9: [],
-    11: [],
-    13: [],
-    21: [],
-    24: [],
-    35: [],
-}
+doctor_availabilities = {}
 
 
 # doctor_non_availabilities -nöbet istenmeyen günler-
@@ -474,7 +455,7 @@ doctor_non_availabilities = {
     36: [],
 }
 
-evli_çiftler = [(1, 6), (2, 11), (16, 17)]  # Çiftlerin doktor numaraları
+evli_çiftler = [(1, 6), (2, 10), (15, 16)]  # Çiftlerin doktor numaraları
 vites = Vites()
 vites.setup(doctor_availabilities, doctor_non_availabilities, evli_çiftler)
 vites.create_shifts()
